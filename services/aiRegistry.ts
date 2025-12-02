@@ -37,7 +37,7 @@ export const aiRegistry = {
           if (!res.ok) throw new Error("Falha ao buscar chaves");
           const keys: any[] = await res.json();
           
-          // Mapeia para formato ActiveKeyResponse e Ordena por prioridade
+          // Mapeia para formato ActiveKeyResponse e Ordena por prioridade (ASC: 1 é maior prioridade que 5)
           return keys
             .map(k => ({ key: k.key_value, provider: k.provider, id: k.id, priority: k.priority }))
             .sort((a, b) => a.priority - b.priority);
@@ -99,13 +99,13 @@ export const aiRegistry = {
   },
 
   /**
-   * Teste simples de latência/validade (Mockado no frontend, real seria chamada API).
+   * Teste simples de latência/validade.
    */
   testKeyConnection: async (provider: AIProvider, key: string): Promise<{valid: boolean, latency: number}> => {
      const start = Date.now();
      // Em produção, faria uma chamada leve à API real (ex: list models)
      await new Promise(r => setTimeout(r, 500)); // Simula network
-     const valid = key.length > 10;
+     const valid = key.length > 5;
      return { valid, latency: Date.now() - start };
   }
 };

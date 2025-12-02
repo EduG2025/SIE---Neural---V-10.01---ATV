@@ -1,3 +1,4 @@
+
 # Configuração de Ambiente (.env)
 
 Este arquivo contém todas as variáveis necessárias para rodar o sistema **SIE 3xxx**.
@@ -28,6 +29,12 @@ Credenciais para conexão com o banco de dados da VPS.
 |----------|-----------|
 | `API_KEY` | Chave de API do Google Gemini (AI Studio). Necessário para Scoring de Candidatos e Núcleo Neural. |
 
+## 4. Segurança e Emergência
+
+| Variável | Descrição |
+|----------|-----------|
+| `EMERGENCY_KEY` | Chave Mestra para login em caso de falha no Banco de Dados. Dá acesso ROOT. |
+
 ---
 
 ## Exemplo Completo para Copiar
@@ -42,8 +49,11 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=sie301
 DB_USER=sie301
-DB_PASSWORD=Gegerminal180!
+DB_PASSWORD=Gegerminal180
 
 # AI Config
 API_KEY=sua_chave_aqui_xyz123
+
+# Emergency Key (Mantenha Seguro!)
+EMERGENCY_KEY=SIE-ROOT-RESCUE-2024
 ```

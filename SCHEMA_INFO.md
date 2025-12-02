@@ -1,6 +1,9 @@
-# SIE 3xxx - Database Schema
 
-Este é o esquema oficial de produção para o banco `sie301`.
+# SIE 3xxx - Database Schema & Seed
+
+Este é o esquema oficial de produção para o banco `sie301`, incluindo a estrutura das tabelas e os dados iniciais para operação imediata.
+
+## Estrutura (DDL)
 
 ```sql
 CREATE DATABASE IF NOT EXISTS sie301 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -88,4 +91,51 @@ CREATE TABLE IF NOT EXISTS political_network (
     type ENUM('CORE', 'ALLY', 'DONOR', 'RISK', 'NEUTRAL', 'OPPOSITION'),
     x INT, y INT, z INT -- Coordenadas para gráfico 3D/Scatter
 );
+```
+
+## Dados Iniciais (Seed / DML)
+
+Execute estes comandos após criar as tabelas para popular o sistema.
+
+```sql
+-- 1. Criar Usuário Admin Padrão
+-- Credencial de Acesso: SIE-ADMIN-KEY
+INSERT INTO users (name, email, password_hash, access_credential, role, plan, status)
+VALUES ('Super Admin', 'admin@sie.sistema', 'admin123', 'SIE-ADMIN-KEY', 'ADMIN', 'ENTERPRISE', 'ACTIVE');
+
+-- 2. Configurações Básicas do Sistema
+INSERT INTO system_configs (config_key, config_value, description, is_public) VALUES
+('SYSTEM_NAME', 'SIE 3xxx - Intelligence', 'Nome exibido no painel', TRUE),
+('MAINTENANCE_MODE', 'false', 'Sistema em modo de produção', TRUE),
+('ALLOW_REGISTRATION', 'true', 'Permitir novos cadastros', TRUE),
+('SYSTEM_LOGO', '', 'URL do logo (vazio = padrão)', TRUE);
+
+-- 3. Planos de Assinatura Padrão
+INSERT INTO plans (name, price, duration_days, trial_days, features_json, is_active) VALUES
+('Plano Basic', 99.00, 30, 0, '["DASHBOARD", "CANDIDATES"]', TRUE),
+('Plano Pro', 299.00, 30, 7, '["DASHBOARD", "CANDIDATES", "NETWORK", "USERS"]', TRUE),
+('Plano Enterprise', 999.00, 365, 0, '["DASHBOARD", "CANDIDATES", "NETWORK", "USERS", "COMMERCE", "AI_CORE"]', TRUE);
+
+-- 4. Chave de IA (Placeholder - O Usuário deve editar no painel)
+INSERT INTO api_keys (provider, key_value, label, priority, is_active) VALUES
+('GEMINI', 'AIzaSy_PLACEHOLDER_KEY', 'Chave Inicial (Configure no Painel)', 1, FALSE);
+
+-- 5. Candidatos de Exemplo
+INSERT INTO candidates (name, party, state, score, risk_level) VALUES
+('Carlos Mendes', 'PBR', 'SP', 85, 'LOW'),
+('Juliana Paiva', 'AVANTE', 'RJ', 62, 'MEDIUM'),
+('Roberto Justus', 'NOVO', 'MG', 91, 'LOW'),
+('Paulo Maluf Jr', 'PP', 'SP', 35, 'HIGH');
+
+-- 6. Rede Política de Exemplo
+INSERT INTO political_network (name, type, x, y, z) VALUES
+('Núcleo Central', 'CORE', 100, 200, 500),
+('Aliado Estratégico A', 'ALLY', 120, 220, 300),
+('Doador B', 'DONOR', 80, 180, 400),
+('Oposição C', 'OPPOSITION', 200, 50, 450),
+('Grupo de Risco D', 'RISK', 150, 300, 200);
+
+-- 7. Histórico de Pagamento Exemplo
+INSERT INTO payments (user_id, plan_id, amount, payment_method, status, transaction_id) 
+SELECT id, 1, 99.00, 'MANUAL', 'COMPLETED', 'TRANS-001' FROM users LIMIT 1;
 ```

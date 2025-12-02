@@ -34,7 +34,7 @@ export enum ViewState {
   AI_CORE = 'AI_CORE',
   SETTINGS = 'SETTINGS',
   USERS = 'USERS',
-  COMMERCE = 'COMMERCE' // Novo Módulo
+  COMMERCE = 'COMMERCE'
 }
 
 export interface FileNode {
@@ -103,21 +103,20 @@ export interface ModuleMetrics {
   memoryUsage: number;
 }
 
-// Novos Tipos para Commerce e Branding
 export interface Plan {
   id: number;
   name: string;
   price: number;
   duration_days: number;
   trial_days: number;
-  features_json: string[]; // Array de strings
+  features_json: string[];
   is_active: boolean;
 }
 
 export interface Payment {
   id: number;
   user_id: number;
-  user_name?: string; // Join
+  user_name?: string;
   plan_id: number;
   amount: number;
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
