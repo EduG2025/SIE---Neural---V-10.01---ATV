@@ -88,10 +88,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 });
 
 app.get('/api/modules/metrics', async (req, res) => {
-    // Simula métricas reais baseadas no sistema
     const cpuLoad = os.loadavg()[0];
-    const freeMem = os.freemem() / 1024 / 1024;
-    
     res.json([
         { name: 'Dashboard', status: 'ONLINE', latencyMs: Math.round(Math.random() * 50 + 20), cpuUsage: cpuLoad.toFixed(2), memoryUsage: 120 },
         { name: 'AICore', status: 'ONLINE', latencyMs: Math.round(Math.random() * 100 + 50), cpuUsage: (cpuLoad * 2).toFixed(2), memoryUsage: 450 },
@@ -126,7 +123,6 @@ app.get('/api/auth/settings', async (req, res) => {
         }
         res.json(settings);
     } catch (e) {
-        // Fallback seguro para não quebrar a tela de login
         res.json({ systemName: 'SIE 3xxx (Offline Mode)', logoUrl: '', allowRegistration: false });
     }
 });
@@ -135,7 +131,7 @@ app.post('/api/auth/register', async (req, res) => {
     try {
         const [config] = await db.execute("SELECT config_value FROM system_configs WHERE config_key = 'ALLOW_REGISTRATION'");
         const isAllowed = config.length > 0 && (config[0].config_value === 'true' || config[0].config_value === '1');
-        if (!isAllowed) return res.status(403).json({ error: 'Registro desativado.' });
+        if (!isAllowed) return res.status(403).json({ error: 'Registro desativado pelo administrador.' });
     } catch(e) { return res.status(500).json({ error: 'Erro config.' }); }
 
     const { name, email, password } = req.body;
@@ -145,11 +141,14 @@ app.post('/api/auth/register', async (req, res) => {
         const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) return res.status(400).json({ error: 'Email já cadastrado.' });
 
+        // Gera Credencial Única: SIE-XXXX-YYYY
         const credential = 'SIE-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+        
         await db.execute(
             'INSERT INTO users (name, email, password_hash, access_credential, role, plan, status) VALUES (?, ?, ?, ?, ?, ?, ?)', 
             [name, email, password, credential, 'USER', 'BASIC', 'ACTIVE'] 
         );
+        
         res.json({ success: true, credential });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -157,48 +156,40 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     const { credential } = req.body;
     
-    // 1. Verificação de Chave de Emergência (Bypass DB)
-    if (process.env.EMERGENCY_KEY && credential === process.env.EMERGENCY_KEY) {
-        console.warn(`[SECURITY ALERT] Login de Emergência (ROOT) realizado em ${new Date().toISOString()}`);
+    // 1. Verificação de Chave de Emergência (Root Rescue)
+    if (process.env.EMERGENCY_KEY && process.env.EMERGENCY_KEY.length > 5 && credential === process.env.EMERGENCY_KEY) {
+        console.warn(`[SECURITY ALERT] 🚨 LOGIN DE EMERGÊNCIA (ROOT) ACIONADO IP: ${req.ip}`);
         return res.json({ 
             success: true, 
-            user: { 
-                id: 0, 
-                name: 'ROOT_EMERGENCY', 
-                role: 'ADMIN', 
-                plan: 'ENTERPRISE', 
-                avatar: '',
-                status: 'ACTIVE'
-            } 
+            user: { id: 0, name: 'ROOT_EMERGENCY', role: 'ADMIN', plan: 'ENTERPRISE', avatar: '', status: 'ACTIVE' } 
         });
     }
 
     if (!credential) return res.status(400).json({ error: 'Credencial necessária' });
 
-    // 2. Modo de Manutenção (File Based Auth) - Se ativo no ENV ou DB falhar
+    // 2. Modo de Manutenção (File Based Auth - Opcional)
     if (process.env.MAINTENANCE_MODE === 'true') {
-        // ... Lógica de arquivos JSON aqui se implementada ...
+        // Implementar leitura de JSON se necessário
     }
 
-    // 3. Login Padrão (MySQL)
+    // 3. Login Padrão (MySQL) - Apenas Credencial
     try {
         const [rows] = await db.execute('SELECT * FROM users WHERE access_credential = ? AND status = "ACTIVE"', [credential]);
-        if (rows.length === 0) return res.status(401).json({ error: 'Credencial inválida.' });
+        if (rows.length === 0) return res.status(401).json({ error: 'Credencial inválida ou expirada.' });
         
         const user = rows[0];
-        // Async update login time (não bloqueia resposta)
         db.execute('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]).catch(e => console.error(e));
         
         res.json({ success: true, user: { id: user.id, name: user.name, role: user.role, plan: user.plan, avatar: user.avatar } });
     } catch (error) { 
         console.error("Login DB Error:", error);
-        res.status(500).json({ error: 'Erro interno ou Banco de Dados indisponível. Use chave de emergência.' }); 
+        res.status(500).json({ error: 'Erro interno ou Banco de Dados indisponível.' }); 
     }
 });
 
 // CRUD Usuários
 app.get('/api/users', async (req, res) => {
-    try { const [u] = await db.execute('SELECT id, name, email, role, plan, status, avatar, last_login FROM users'); res.json(u); } catch (e) { res.status(500).json({ error: e.message }); }
+    try { const [u] = await db.execute('SELECT id, name, email, role, plan, status, avatar, last_login, access_credential FROM users'); res.json(u); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/users', async (req, res) => {
     const { name, email, role, plan, status } = req.body;
@@ -251,10 +242,7 @@ app.put('/api/payments/:id/confirm', async (req, res) => { try { await db.execut
 app.post('/api/upload/logo', upload.single('logo'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     const url = `/media/${req.file.filename}`;
-    // Salva no DB configs
-    try {
-        await db.execute('INSERT INTO system_configs (config_key, config_value) VALUES ("SYSTEM_LOGO", ?) ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)', [url]);
-    } catch(e) {}
+    try { await db.execute('INSERT INTO system_configs (config_key, config_value) VALUES ("SYSTEM_LOGO", ?) ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)', [url]); } catch(e) {}
     res.json({ success: true, url });
 });
 
@@ -287,11 +275,8 @@ app.post('/api/fs/write', async (req, res) => {
     const fullPath = path.resolve(PROJECT_ROOT, req.body.path);
     if (!fullPath.startsWith(PROJECT_ROOT)) return res.status(403).json({ error: 'Acesso negado.' });
     try {
-        // Create Snapshot
         const snapshotName = `${path.basename(fullPath)}.${Date.now()}.bak`;
-        try {
-            await fs.copyFile(fullPath, path.join(BACKUP_DIR, snapshotName));
-        } catch(e) {} // Ignora se arquivo novo
+        try { await fs.copyFile(fullPath, path.join(BACKUP_DIR, snapshotName)); } catch(e) {}
 
         await fs.writeFile(fullPath, req.body.content, 'utf-8');
         res.json({ success: true, snapshot: snapshotName });
@@ -299,7 +284,8 @@ app.post('/api/fs/write', async (req, res) => {
 });
 
 app.post('/api/terminal/exec', async (req, res) => {
-    exec(req.body.command, { cwd: PROJECT_ROOT }, (error, stdout, stderr) => {
+    // Aumenta o buffer para 50MB e remove timeout para permitir builds longos
+    exec(req.body.command, { cwd: PROJECT_ROOT, maxBuffer: 1024 * 1024 * 50, timeout: 0 }, (error, stdout, stderr) => {
         res.json({ output: stdout, error: stderr, exitCode: error ? error.code : 0 });
     });
 });
