@@ -1,23 +1,30 @@
 
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
+  const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    base: '/', // Garante caminhos absolutos para assets na VPS
+    base: '/',
     plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
     define: {
+      // Injeta apenas as variáveis necessárias, sem sobrescrever o objeto process.env inteiro
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
-      // Polyfill para libs que acessam process.env diretamente
-      'process.env': JSON.stringify({})
+      // Define NODE_ENV explicitamente para evitar erros em libs
+      'process.env.NODE_ENV': JSON.stringify(mode),
     },
     build: {
       outDir: 'dist',
       emptyOutDir: true,
       sourcemap: false,
-      chunkSizeWarningLimit: 1000, // Aumenta limite de aviso para 1MB (devido ao Google GenAI SDK)
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           manualChunks: {
